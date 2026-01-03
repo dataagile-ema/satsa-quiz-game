@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SATSA - Frågesportsspelet där du vågar vinna</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen active">
+            <div class="logo-container">
+                <h1 class="logo">SATSA</h1>
+                <p class="tagline">Våga mer. Vinn mer. Förlora allt.</p>
+            </div>
+
+            <div class="menu-buttons">
+                <button id="btn-solo" class="menu-btn primary">
+                    <span class="btn-icon">🎯</span>
+                    <span class="btn-text">Solo</span>
+                </button>
+                <button id="btn-multiplayer" class="menu-btn">
+                    <span class="btn-icon">👥</span>
+                    <span class="btn-text">Multiplayer</span>
+                </button>
+                <button id="btn-highscore" class="menu-btn">
+                    <span class="btn-icon">🏆</span>
+                    <span class="btn-text">Topplista</span>
+                </button>
+                <button id="btn-rules" class="menu-btn">
+                    <span class="btn-icon">📖</span>
+                    <span class="btn-text">Regler</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Player Setup Screen -->
+        <div id="setup-screen" class="screen">
+            <h2 class="screen-title">Ange spelare</h2>
+            <div id="player-inputs">
+                <div class="player-input-group">
+                    <label>Spelare 1</label>
+                    <input type="text" class="player-name-input" placeholder="Ditt namn" maxlength="15">
+                </div>
+            </div>
+            <button id="btn-add-player" class="add-player-btn">+ Lägg till spelare</button>
+
+            <div class="category-select">
+                <h3>Välj kategori</h3>
+                <div class="category-buttons">
+                    <button class="category-btn" data-category="mixed">
+                        <span class="cat-icon">🎲</span>
+                        <span>Blandat</span>
+                    </button>
+                    <button class="category-btn" data-category="geography">
+                        <span class="cat-icon">🌍</span>
+                        <span>Geografi</span>
+                    </button>
+                    <button class="category-btn" data-category="history">
+                        <span class="cat-icon">📜</span>
+                        <span>Historia</span>
+                    </button>
+                    <button class="category-btn" data-category="entertainment">
+                        <span class="cat-icon">🎬</span>
+                        <span>Nöje</span>
+                    </button>
+                    <button class="category-btn" data-category="sports">
+                        <span class="cat-icon">⚽</span>
+                        <span>Sport</span>
+                    </button>
+                    <button class="category-btn" data-category="science">
+                        <span class="cat-icon">🔬</span>
+                        <span>Vetenskap</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="setup-actions">
+                <button id="btn-back-setup" class="back-btn">← Tillbaka</button>
+                <button id="btn-start-game" class="start-btn">Starta spelet →</button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <div class="round-info">
+                    <span class="label">Omgång</span>
+                    <span id="current-round" class="value">1</span>
+                    <span class="divider">/</span>
+                    <span id="total-rounds" class="value">10</span>
+                </div>
+                <div class="player-turn">
+                    <span id="current-player-name">Spelare</span>
+                </div>
+                <div class="total-score">
+                    <span class="label">Totalt</span>
+                    <span id="total-points" class="value">0</span>
+                </div>
+            </div>
+
+            <div class="pot-container">
+                <div class="pot-label">I POTTEN</div>
+                <div id="pot-amount" class="pot-amount">0</div>
+                <div class="heat-meter">
+                    <div id="heat-fill" class="heat-fill"></div>
+                </div>
+                <div id="streak-indicator" class="streak-indicator"></div>
+            </div>
+
+            <div class="question-container">
+                <div class="category-badge" id="question-category">Blandat</div>
+                <div id="question-text" class="question-text">
+                    Frågan laddas...
+                </div>
+                <div id="answers-container" class="answers-container">
+                    <!-- Answers will be inserted here -->
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="btn-bank" class="action-btn bank-btn" disabled>
+                    <span class="btn-label">BANKA</span>
+                    <span class="btn-sub">Säkra poängen</span>
+                </button>
+            </div>
+
+            <div id="result-overlay" class="result-overlay hidden">
+                <div class="result-content">
+                    <div id="result-icon" class="result-icon"></div>
+                    <div id="result-text" class="result-text"></div>
+                    <div id="result-points" class="result-points"></div>
+                    <button id="btn-continue" class="continue-btn">Fortsätt</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="screen">
+            <h2 class="gameover-title">Spelet är slut!</h2>
+            <div id="final-results" class="final-results">
+                <!-- Results will be inserted here -->
+            </div>
+            <div id="highscore-message" class="highscore-message hidden">
+                🏆 Nytt rekord!
+            </div>
+            <div class="gameover-actions">
+                <button id="btn-play-again" class="menu-btn primary">Spela igen</button>
+                <button id="btn-main-menu" class="menu-btn">Huvudmeny</button>
+            </div>
+        </div>
+
+        <!-- Highscore Screen -->
+        <div id="highscore-screen" class="screen">
+            <h2 class="screen-title">🏆 Topplista</h2>
+            <div id="highscore-list" class="highscore-list">
+                <!-- Highscores will be inserted here -->
+            </div>
+            <button id="btn-back-highscore" class="back-btn">← Tillbaka</button>
+        </div>
+
+        <!-- Rules Screen -->
+        <div id="rules-screen" class="screen">
+            <h2 class="screen-title">📖 Så spelar du</h2>
+            <div class="rules-content">
+                <div class="rule-section">
+                    <h3>🎯 Målet</h3>
+                    <p>Samla så många poäng som möjligt under 10 omgångar.</p>
+                </div>
+                <div class="rule-section">
+                    <h3>💰 Poängsystemet</h3>
+                    <p>Första rätta svaret ger <strong>100 poäng</strong> i potten.</p>
+                    <p>Varje rätt svar därefter <strong>fördubblar</strong> potten!</p>
+                    <p class="example">100 → 200 → 400 → 800 → 1600...</p>
+                </div>
+                <div class="rule-section">
+                    <h3>⚡ SATSA eller BANKA?</h3>
+                    <p><strong>SATSA:</strong> Svara på nästa fråga för att fördubbla potten.</p>
+                    <p><strong>BANKA:</strong> Säkra poängen i potten och gå vidare till nästa omgång.</p>
+                </div>
+                <div class="rule-section warning">
+                    <h3>💀 Varning!</h3>
+                    <p>Ett felaktigt svar = du förlorar <strong>HELA</strong> potten för omgången!</p>
+                </div>
+                <div class="rule-section">
+                    <h3>👥 Multiplayer</h3>
+                    <p>Spela mot vänner! Spelarna turas om och den med högst totalpoäng vinner.</p>
+                </div>
+            </div>
+            <button id="btn-back-rules" class="back-btn">← Tillbaka</button>
+        </div>
+    </div>
+
+    <script src="questions.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
