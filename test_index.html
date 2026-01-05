@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SATSA - Fragesportsspelet dar du vagar vinna</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen active">
+            <div class="logo-container">
+                <h1 class="logo">SATSA</h1>
+                <p class="tagline">Vaga mer. Vinn mer. Forlora allt.</p>
+            </div>
+            <div class="menu-buttons">
+                <button id="btn-solo" class="menu-btn primary">
+                    <span class="btn-icon">&#127919;</span>
+                    <span class="btn-text">Solo</span>
+                </button>
+                <button id="btn-multiplayer" class="menu-btn">
+                    <span class="btn-icon">&#128101;</span>
+                    <span class="btn-text">Multiplayer</span>
+                </button>
+                <button id="btn-highscore" class="menu-btn">
+                    <span class="btn-icon">&#127942;</span>
+                    <span class="btn-text">Topplista</span>
+                </button>
+                <button id="btn-rules" class="menu-btn">
+                    <span class="btn-icon">&#128214;</span>
+                    <span class="btn-text">Regler</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script src="questions.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

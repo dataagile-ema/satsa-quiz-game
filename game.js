@@ -1,33 +1,38 @@
 /**
  * SATSA - Main Game Logic
- * A risk/reward quiz game
+ * A risk/reward quiz game with level progression
  */
+
+// ============================================
+// CONSTANTS
+// ============================================
+
+const LEVEL_POINTS = [0, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200];
+const SAFE_LEVELS = [5, 10];
+const BASE_TIME = 30;
+const TIME_DECREASE_PER_LEVEL = 2;
+const MIN_TIME = 10;
 
 // ============================================
 // GAME STATE
 // ============================================
 
 const GameState = {
-    // Players
     players: [],
     currentPlayerIndex: 0,
-
-    // Game settings
-    category: 'mixed',
+    category: "mixed",
     totalRounds: 10,
     currentRound: 1,
-
-    // Current round state
     pot: 0,
     streak: 0,
+    currentLevel: 0,
+    safePoints: 0,
     questionsAnswered: 0,
     usedQuestionIndices: new Set(),
-
-    // Game mode
+    timerInterval: null,
+    timeLeft: BASE_TIME,
     isMultiplayer: false,
     gameOver: false,
-
-    // Audio
     soundEnabled: true
 };
 
@@ -36,62 +41,49 @@ const GameState = {
 // ============================================
 
 const DOM = {
-    // Screens
     screens: {
-        start: document.getElementById('start-screen'),
-        setup: document.getElementById('setup-screen'),
-        game: document.getElementById('game-screen'),
-        gameover: document.getElementById('gameover-screen'),
-        highscore: document.getElementById('highscore-screen'),
-        rules: document.getElementById('rules-screen')
+        start: document.getElementById("start-screen"),
+        setup: document.getElementById("setup-screen"),
+        game: document.getElementById("game-screen"),
+        gameover: document.getElementById("gameover-screen"),
+        highscore: document.getElementById("highscore-screen"),
+        rules: document.getElementById("rules-screen")
     },
-
-    // Start screen
-    btnSolo: document.getElementById('btn-solo'),
-    btnMultiplayer: document.getElementById('btn-multiplayer'),
-    btnHighscore: document.getElementById('btn-highscore'),
-    btnRules: document.getElementById('btn-rules'),
-
-    // Setup screen
-    playerInputs: document.getElementById('player-inputs'),
-    btnAddPlayer: document.getElementById('btn-add-player'),
-    categoryButtons: document.querySelectorAll('.category-btn'),
-    btnBackSetup: document.getElementById('btn-back-setup'),
-    btnStartGame: document.getElementById('btn-start-game'),
-
-    // Game screen
-    currentRound: document.getElementById('current-round'),
-    totalRounds: document.getElementById('total-rounds'),
-    currentPlayerName: document.getElementById('current-player-name'),
-    totalPoints: document.getElementById('total-points'),
-    potAmount: document.getElementById('pot-amount'),
-    potContainer: document.querySelector('.pot-container'),
-    heatFill: document.getElementById('heat-fill'),
-    streakIndicator: document.getElementById('streak-indicator'),
-    questionCategory: document.getElementById('question-category'),
-    questionText: document.getElementById('question-text'),
-    answersContainer: document.getElementById('answers-container'),
-    btnBank: document.getElementById('btn-bank'),
-
-    // Result overlay
-    resultOverlay: document.getElementById('result-overlay'),
-    resultIcon: document.getElementById('result-icon'),
-    resultText: document.getElementById('result-text'),
-    resultPoints: document.getElementById('result-points'),
-    btnContinue: document.getElementById('btn-continue'),
-
-    // Game over screen
-    finalResults: document.getElementById('final-results'),
-    highscoreMessage: document.getElementById('highscore-message'),
-    btnPlayAgain: document.getElementById('btn-play-again'),
-    btnMainMenu: document.getElementById('btn-main-menu'),
-
-    // Highscore screen
-    highscoreList: document.getElementById('highscore-list'),
-    btnBackHighscore: document.getElementById('btn-back-highscore'),
-
-    // Rules screen
-    btnBackRules: document.getElementById('btn-back-rules')
+    btnSolo: document.getElementById("btn-solo"),
+    btnMultiplayer: document.getElementById("btn-multiplayer"),
+    btnHighscore: document.getElementById("btn-highscore"),
+    btnRules: document.getElementById("btn-rules"),
+    playerInputs: document.getElementById("player-inputs"),
+    btnAddPlayer: document.getElementById("btn-add-player"),
+    categoryButtons: document.querySelectorAll(".category-btn"),
+    btnBackSetup: document.getElementById("btn-back-setup"),
+    btnStartGame: document.getElementById("btn-start-game"),
+    currentRound: document.getElementById("current-round"),
+    totalRounds: document.getElementById("total-rounds"),
+    currentPlayerName: document.getElementById("current-player-name"),
+    totalPoints: document.getElementById("total-points"),
+    potAmount: document.getElementById("pot-amount"),
+    potContainer: document.querySelector(".pot-container"),
+    levelLadder: document.getElementById("level-ladder"),
+    timerFill: document.getElementById("timer-fill"),
+    timerText: document.getElementById("timer-text"),
+    streakIndicator: document.getElementById("streak-indicator"),
+    questionCategory: document.getElementById("question-category"),
+    questionText: document.getElementById("question-text"),
+    answersContainer: document.getElementById("answers-container"),
+    btnBank: document.getElementById("btn-bank"),
+    resultOverlay: document.getElementById("result-overlay"),
+    resultIcon: document.getElementById("result-icon"),
+    resultText: document.getElementById("result-text"),
+    resultPoints: document.getElementById("result-points"),
+    btnContinue: document.getElementById("btn-continue"),
+    finalResults: document.getElementById("final-results"),
+    highscoreMessage: document.getElementById("highscore-message"),
+    btnPlayAgain: document.getElementById("btn-play-again"),
+    btnMainMenu: document.getElementById("btn-main-menu"),
+    highscoreList: document.getElementById("highscore-list"),
+    btnBackHighscore: document.getElementById("btn-back-highscore"),
+    btnBackRules: document.getElementById("btn-back-rules")
 };
 
 // ============================================
@@ -100,66 +92,55 @@ const DOM = {
 
 const AudioSystem = {
     context: null,
-
     init() {
         try {
             this.context = new (window.AudioContext || window.webkitAudioContext)();
         } catch (e) {
-            console.log('Web Audio API not supported');
+            console.log("Web Audio API not supported");
         }
     },
-
-    playTone(frequency, duration, type = 'sine') {
+    playTone(frequency, duration, type = "sine") {
         if (!this.context || !GameState.soundEnabled) return;
-
         const oscillator = this.context.createOscillator();
         const gainNode = this.context.createGain();
-
         oscillator.connect(gainNode);
         gainNode.connect(this.context.destination);
-
         oscillator.type = type;
         oscillator.frequency.value = frequency;
-
         gainNode.gain.setValueAtTime(0.3, this.context.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, this.context.currentTime + duration);
-
         oscillator.start(this.context.currentTime);
         oscillator.stop(this.context.currentTime + duration);
     },
-
     correct() {
-        this.playTone(523.25, 0.1); // C5
-        setTimeout(() => this.playTone(659.25, 0.1), 100); // E5
-        setTimeout(() => this.playTone(783.99, 0.15), 200); // G5
+        this.playTone(523.25, 0.1);
+        setTimeout(() => this.playTone(659.25, 0.1), 100);
+        setTimeout(() => this.playTone(783.99, 0.15), 200);
     },
-
     wrong() {
-        this.playTone(200, 0.3, 'sawtooth');
-        setTimeout(() => this.playTone(150, 0.4, 'sawtooth'), 150);
+        this.playTone(200, 0.3, "sawtooth");
+        setTimeout(() => this.playTone(150, 0.4, "sawtooth"), 150);
     },
-
     bank() {
         this.playTone(440, 0.1);
         setTimeout(() => this.playTone(554.37, 0.1), 80);
         setTimeout(() => this.playTone(659.25, 0.1), 160);
         setTimeout(() => this.playTone(880, 0.2), 240);
     },
-
-    click() {
-        this.playTone(800, 0.05);
+    click() { this.playTone(800, 0.05); },
+    tick() { this.playTone(600, 0.02); },
+    safeLevel() {
+        [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((note, i) => {
+            setTimeout(() => this.playTone(note, 0.15), i * 100);
+        });
     },
-
     gameOver() {
-        const notes = [523.25, 493.88, 440, 392, 349.23, 329.63, 293.66, 261.63];
-        notes.forEach((note, i) => {
+        [523.25, 493.88, 440, 392, 349.23, 329.63, 293.66, 261.63].forEach((note, i) => {
             setTimeout(() => this.playTone(note, 0.15), i * 150);
         });
     },
-
     victory() {
-        const notes = [523.25, 659.25, 783.99, 1046.50];
-        notes.forEach((note, i) => {
+        [523.25, 659.25, 783.99, 1046.50].forEach((note, i) => {
             setTimeout(() => this.playTone(note, 0.2), i * 150);
         });
     }
@@ -170,10 +151,8 @@ const AudioSystem = {
 // ============================================
 
 function showScreen(screenName) {
-    Object.values(DOM.screens).forEach(screen => {
-        screen.classList.remove('active');
-    });
-    DOM.screens[screenName].classList.add('active');
+    Object.values(DOM.screens).forEach(screen => screen.classList.remove("active"));
+    DOM.screens[screenName].classList.add("active");
 }
 
 function shuffleArray(array) {
@@ -186,28 +165,88 @@ function shuffleArray(array) {
 }
 
 function formatNumber(num) {
-    return num.toLocaleString('sv-SE');
+    return num.toLocaleString("sv-SE");
 }
 
-function animateNumber(element, start, end, duration = 500) {
-    const startTime = performance.now();
+// ============================================
+// TIMER SYSTEM
+// ============================================
 
-    function update(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
+function getTimeForLevel(level) {
+    return Math.max(BASE_TIME - (level * TIME_DECREASE_PER_LEVEL), MIN_TIME);
+}
 
-        // Easing function
-        const easeOut = 1 - Math.pow(1 - progress, 3);
-        const current = Math.round(start + (end - start) * easeOut);
+function startTimer() {
+    stopTimer();
+    GameState.timeLeft = getTimeForLevel(GameState.currentLevel);
+    updateTimerDisplay();
+    GameState.timerInterval = setInterval(() => {
+        GameState.timeLeft--;
+        updateTimerDisplay();
+        if (GameState.timeLeft <= 5 && GameState.timeLeft > 0) AudioSystem.tick();
+        if (GameState.timeLeft <= 0) handleTimeOut();
+    }, 1000);
+}
 
-        element.textContent = formatNumber(current);
-
-        if (progress < 1) {
-            requestAnimationFrame(update);
-        }
+function stopTimer() {
+    if (GameState.timerInterval) {
+        clearInterval(GameState.timerInterval);
+        GameState.timerInterval = null;
     }
+}
 
-    requestAnimationFrame(update);
+function updateTimerDisplay() {
+    if (DOM.timerText) DOM.timerText.textContent = GameState.timeLeft;
+    if (DOM.timerFill) {
+        const percent = (GameState.timeLeft / getTimeForLevel(GameState.currentLevel)) * 100;
+        DOM.timerFill.style.width = percent + "%";
+        DOM.timerFill.classList.toggle("warning", GameState.timeLeft <= 5);
+    }
+}
+
+function handleTimeOut() {
+    stopTimer();
+    AudioSystem.wrong();
+    document.querySelectorAll(".answer-btn").forEach(btn => {
+        btn.disabled = true;
+        btn.removeEventListener("click", handleAnswer);
+        if (parseInt(btn.dataset.originalIndex) === GameState.currentQuestion.correct) {
+            btn.classList.add("correct");
+        }
+    });
+    const lostPoints = GameState.pot - GameState.safePoints;
+    GameState.pot = GameState.safePoints;
+    GameState.currentLevel = GameState.safePoints > 0 ? 5 : 0;
+    GameState.streak = 0;
+    DOM.potContainer.classList.add("shake");
+    setTimeout(() => DOM.potContainer.classList.remove("shake"), 500);
+    updateUI();
+    updateLevelLadder();
+    showResult("timeout", lostPoints);
+}
+
+// ============================================
+// LEVEL LADDER SYSTEM
+// ============================================
+
+function updateLevelLadder() {
+    if (!DOM.levelLadder) return;
+    DOM.levelLadder.querySelectorAll(".level-step").forEach(step => {
+        const level = parseInt(step.dataset.level);
+        step.classList.remove("current", "completed", "next");
+        if (level === GameState.currentLevel) step.classList.add("current");
+        else if (level < GameState.currentLevel) step.classList.add("completed");
+        else if (level === GameState.currentLevel + 1) step.classList.add("next");
+    });
+}
+
+function checkSafeLevel() {
+    if (SAFE_LEVELS.includes(GameState.currentLevel)) {
+        GameState.safePoints = GameState.pot;
+        AudioSystem.safeLevel();
+        return true;
+    }
+    return false;
 }
 
 // ============================================
@@ -215,61 +254,38 @@ function animateNumber(element, start, end, duration = 500) {
 // ============================================
 
 const HighscoreSystem = {
-    KEY: 'satsa_highscores',
+    KEY: "satsa_highscores",
     MAX_ENTRIES: 10,
-
     getScores() {
         try {
             const data = localStorage.getItem(this.KEY);
             return data ? JSON.parse(data) : [];
-        } catch {
-            return [];
-        }
+        } catch { return []; }
     },
-
     saveScore(name, score) {
         const scores = this.getScores();
-        const newEntry = {
-            name,
-            score,
-            date: new Date().toLocaleDateString('sv-SE')
-        };
-
+        const newEntry = { name, score, date: new Date().toLocaleDateString("sv-SE") };
         scores.push(newEntry);
         scores.sort((a, b) => b.score - a.score);
         scores.splice(this.MAX_ENTRIES);
-
-        try {
-            localStorage.setItem(this.KEY, JSON.stringify(scores));
-        } catch (e) {
-            console.log('Could not save highscore');
-        }
-
-        return scores.findIndex(s => s.name === name && s.score === score && s.date === newEntry.date) + 1;
+        try { localStorage.setItem(this.KEY, JSON.stringify(scores)); } catch {}
+        return scores.findIndex(s => s.name === name && s.score === score) + 1;
     },
-
     isHighscore(score) {
         const scores = this.getScores();
-        if (scores.length < this.MAX_ENTRIES) return true;
-        return score > scores[scores.length - 1].score;
+        return scores.length < this.MAX_ENTRIES || score > scores[scores.length - 1].score;
     },
-
     render() {
         const scores = this.getScores();
-
         if (scores.length === 0) {
-            DOM.highscoreList.innerHTML = '<p class="no-scores">Inga poäng ännu. Spela för att komma på listan!</p>';
+            DOM.highscoreList.innerHTML = '<p class="no-scores">Inga poang annu!</p>';
             return;
         }
-
-        DOM.highscoreList.innerHTML = scores.map((entry, index) => `
-            <div class="highscore-item">
-                <span class="position">${index + 1}.</span>
-                <span class="name">${entry.name}</span>
-                <span class="score">${formatNumber(entry.score)}</span>
-                <span class="date">${entry.date}</span>
-            </div>
-        `).join('');
+        DOM.highscoreList.innerHTML = scores.map((entry, i) =>
+            '<div class="highscore-item"><span class="position">' + (i+1) + '.</span>' +
+            '<span class="name">' + entry.name + '</span>' +
+            '<span class="score">' + formatNumber(entry.score) + '</span></div>'
+        ).join("");
     }
 };
 
@@ -281,14 +297,15 @@ function resetGameState() {
     GameState.currentRound = 1;
     GameState.pot = 0;
     GameState.streak = 0;
+    GameState.currentLevel = 0;
+    GameState.safePoints = 0;
     GameState.questionsAnswered = 0;
     GameState.usedQuestionIndices.clear();
     GameState.currentPlayerIndex = 0;
     GameState.gameOver = false;
-
-    GameState.players.forEach(player => {
-        player.score = 0;
-    });
+    GameState.timeLeft = BASE_TIME;
+    stopTimer();
+    GameState.players.forEach(p => p.score = 0);
 }
 
 function getCurrentPlayer() {
@@ -297,229 +314,149 @@ function getCurrentPlayer() {
 
 function getRandomQuestion() {
     const questions = QUESTIONS[GameState.category];
-    const availableIndices = [];
-
+    const available = [];
     for (let i = 0; i < questions.length; i++) {
-        if (!GameState.usedQuestionIndices.has(i)) {
-            availableIndices.push(i);
-        }
+        if (!GameState.usedQuestionIndices.has(i)) available.push(i);
     }
-
-    // If all questions used, reset
-    if (availableIndices.length === 0) {
+    if (available.length === 0) {
         GameState.usedQuestionIndices.clear();
-        for (let i = 0; i < questions.length; i++) {
-            availableIndices.push(i);
-        }
+        for (let i = 0; i < questions.length; i++) available.push(i);
     }
-
-    const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-    GameState.usedQuestionIndices.add(randomIndex);
-
-    return { ...questions[randomIndex], index: randomIndex };
-}
-
-function calculatePotValue() {
-    if (GameState.streak === 0) return 100;
-    return 100 * Math.pow(2, GameState.streak);
+    const idx = available[Math.floor(Math.random() * available.length)];
+    GameState.usedQuestionIndices.add(idx);
+    return { ...questions[idx], index: idx };
 }
 
 function updateUI() {
     const player = getCurrentPlayer();
-
-    // Update header
     DOM.currentRound.textContent = GameState.currentRound;
     DOM.totalRounds.textContent = GameState.totalRounds;
     DOM.currentPlayerName.textContent = player.name;
     DOM.totalPoints.textContent = formatNumber(player.score);
-
-    // Update pot
     DOM.potAmount.textContent = formatNumber(GameState.pot);
-
-    // Update heat meter (0-100% based on pot value, max at 6400)
-    const heatPercent = Math.min((GameState.pot / 6400) * 100, 100);
-    DOM.heatFill.style.width = `${heatPercent}%`;
-
-    // Update pot container styling based on heat
-    DOM.potContainer.classList.remove('hot', 'burning');
-    if (GameState.pot >= 800) {
-        DOM.potContainer.classList.add('burning');
-    } else if (GameState.pot >= 400) {
-        DOM.potContainer.classList.add('hot');
-    }
-
-    // Update streak indicator
+    DOM.potContainer.classList.remove("hot", "burning");
+    if (GameState.currentLevel >= 7) DOM.potContainer.classList.add("burning");
+    else if (GameState.currentLevel >= 4) DOM.potContainer.classList.add("hot");
     updateStreakIndicator();
-
-    // Update bank button
+    updateLevelLadder();
     DOM.btnBank.disabled = GameState.pot === 0;
 }
 
 function updateStreakIndicator() {
-    const maxDots = 7;
-    let html = '';
-
-    for (let i = 0; i < maxDots; i++) {
-        const isActive = i < GameState.streak;
-        html += `<div class="streak-dot ${isActive ? 'active' : ''}"></div>`;
+    let html = "";
+    for (let i = 0; i < 10; i++) {
+        const active = i < GameState.currentLevel;
+        const safe = SAFE_LEVELS.includes(i + 1) && active;
+        html += '<div class="streak-dot ' + (active ? 'active ' : '') + (safe ? 'safe' : '') + '"></div>';
     }
-
     DOM.streakIndicator.innerHTML = html;
 }
 
 function displayQuestion() {
     const question = getRandomQuestion();
     GameState.currentQuestion = question;
-
-    // Get category for display
-    const categoryKey = question.category || GameState.category;
-    DOM.questionCategory.textContent = `${CATEGORY_ICONS[categoryKey]} ${CATEGORY_NAMES[categoryKey]}`;
-
-    // Display question
+    const cat = question.category || GameState.category;
+    DOM.questionCategory.textContent = CATEGORY_ICONS[cat] + " " + CATEGORY_NAMES[cat];
     DOM.questionText.textContent = question.question;
-
-    // Shuffle answers but track correct answer
-    const answerIndices = [0, 1, 2, 3];
-    const shuffledIndices = shuffleArray(answerIndices);
-
-    DOM.answersContainer.innerHTML = shuffledIndices.map((originalIndex, displayIndex) => `
-        <button class="answer-btn" data-original-index="${originalIndex}">
-            ${question.answers[originalIndex]}
-        </button>
-    `).join('');
-
-    // Add click handlers
-    document.querySelectorAll('.answer-btn').forEach(btn => {
-        btn.addEventListener('click', handleAnswer);
-    });
+    const shuffled = shuffleArray([0, 1, 2, 3]);
+    DOM.answersContainer.innerHTML = shuffled.map(i =>
+        '<button class="answer-btn" data-original-index="' + i + '">' + question.answers[i] + '</button>'
+    ).join("");
+    document.querySelectorAll(".answer-btn").forEach(btn => btn.addEventListener("click", handleAnswer));
+    startTimer();
 }
 
 function handleAnswer(e) {
-    const selectedIndex = parseInt(e.target.dataset.originalIndex);
-    const correctIndex = GameState.currentQuestion.correct;
-    const isCorrect = selectedIndex === correctIndex;
-
-    // Disable all answer buttons
-    document.querySelectorAll('.answer-btn').forEach(btn => {
+    stopTimer();
+    const selected = parseInt(e.target.dataset.originalIndex);
+    const correct = GameState.currentQuestion.correct;
+    const isCorrect = selected === correct;
+    document.querySelectorAll(".answer-btn").forEach(btn => {
         btn.disabled = true;
-        btn.removeEventListener('click', handleAnswer);
-
-        const btnIndex = parseInt(btn.dataset.originalIndex);
-        if (btnIndex === correctIndex) {
-            btn.classList.add('correct');
-        } else if (btnIndex === selectedIndex && !isCorrect) {
-            btn.classList.add('wrong');
-        }
+        btn.removeEventListener("click", handleAnswer);
+        const idx = parseInt(btn.dataset.originalIndex);
+        if (idx === correct) btn.classList.add("correct");
+        else if (idx === selected && !isCorrect) btn.classList.add("wrong");
     });
-
-    if (isCorrect) {
-        handleCorrectAnswer();
-    } else {
-        handleWrongAnswer();
-    }
+    isCorrect ? handleCorrectAnswer() : handleWrongAnswer();
 }
 
 function handleCorrectAnswer() {
     AudioSystem.correct();
-
-    // Calculate new pot value
-    const potIncrease = calculatePotValue();
-    GameState.pot += potIncrease;
+    GameState.currentLevel++;
+    GameState.pot = LEVEL_POINTS[GameState.currentLevel];
     GameState.streak++;
-
-    // Animate pot
-    DOM.potAmount.classList.add('pop');
-    setTimeout(() => DOM.potAmount.classList.remove('pop'), 300);
-
-    // Update UI
+    const reachedSafe = checkSafeLevel();
+    DOM.potAmount.classList.add("pop");
+    setTimeout(() => DOM.potAmount.classList.remove("pop"), 300);
     updateUI();
-
-    // Show result
-    showResult('correct', potIncrease);
+    showResult(reachedSafe ? "safe" : "correct", GameState.pot);
 }
 
 function handleWrongAnswer() {
     AudioSystem.wrong();
-
-    const lostPoints = GameState.pot;
-    GameState.pot = 0;
+    const lost = GameState.pot - GameState.safePoints;
+    GameState.pot = GameState.safePoints;
+    GameState.currentLevel = GameState.safePoints > 0 ? 5 : 0;
     GameState.streak = 0;
-
-    // Shake animation
-    DOM.potContainer.classList.add('shake');
-    setTimeout(() => DOM.potContainer.classList.remove('shake'), 500);
-
+    DOM.potContainer.classList.add("shake");
+    setTimeout(() => DOM.potContainer.classList.remove("shake"), 500);
     updateUI();
-
-    // Show result and end round
-    showResult('wrong', lostPoints);
+    showResult("wrong", lost);
 }
 
 function handleBank() {
+    stopTimer();
     AudioSystem.bank();
-
-    const bankedPoints = GameState.pot;
-    getCurrentPlayer().score += bankedPoints;
+    const banked = GameState.pot;
+    getCurrentPlayer().score += banked;
     GameState.pot = 0;
+    GameState.currentLevel = 0;
+    GameState.safePoints = 0;
     GameState.streak = 0;
-
     updateUI();
-
-    showResult('banked', bankedPoints);
+    showResult("banked", banked);
 }
 
 function showResult(type, points) {
-    DOM.resultOverlay.classList.remove('hidden');
+    DOM.resultOverlay.classList.remove("hidden");
+    const icons = { correct: "\u2713", safe: "\u2605", wrong: "\u2717", timeout: "\u23F0", banked: "\uD83D\uDCB0" };
+    const titles = { correct: "RATT!", safe: "SAKER NIVA!", wrong: "FEL!", timeout: "TIDEN SLUT!", banked: "BANKAT!" };
+    DOM.resultIcon.textContent = icons[type];
+    DOM.resultText.textContent = titles[type];
+    DOM.resultText.className = "result-text " + (type === "safe" ? "safe" : type === "banked" ? "banked" : type === "correct" ? "correct" : "wrong");
 
-    switch (type) {
-        case 'correct':
-            DOM.resultIcon.textContent = '✓';
-            DOM.resultText.textContent = 'RÄTT!';
-            DOM.resultText.className = 'result-text correct';
-            DOM.resultPoints.textContent = `+${formatNumber(points)} i potten`;
-            DOM.btnContinue.textContent = GameState.pot >= 6400 ? 'Banka automatiskt' : 'Nästa fråga';
-            break;
-        case 'wrong':
-            DOM.resultIcon.textContent = '✗';
-            DOM.resultText.textContent = 'FEL!';
-            DOM.resultText.className = 'result-text wrong';
-            DOM.resultPoints.textContent = points > 0 ? `-${formatNumber(points)} förlorat` : 'Inga poäng förlorade';
-            DOM.btnContinue.textContent = 'Fortsätt';
-            break;
-        case 'banked':
-            DOM.resultIcon.textContent = '💰';
-            DOM.resultText.textContent = 'BANKAT!';
-            DOM.resultText.className = 'result-text banked';
-            DOM.resultPoints.textContent = `+${formatNumber(points)} säkrade`;
-            DOM.btnContinue.textContent = 'Fortsätt';
-            break;
+    if (type === "correct") {
+        DOM.resultPoints.textContent = "Niva " + GameState.currentLevel + " - " + formatNumber(points) + " i potten";
+        DOM.btnContinue.textContent = GameState.currentLevel >= 10 ? "Banka (max)" : "Nasta fraga";
+    } else if (type === "safe") {
+        DOM.resultPoints.textContent = formatNumber(points) + " poang sakrade!";
+        DOM.btnContinue.textContent = GameState.currentLevel >= 10 ? "Banka (max)" : "Fortsatt";
+    } else if (type === "wrong" || type === "timeout") {
+        DOM.resultPoints.textContent = GameState.safePoints > 0
+            ? "Forlorade " + formatNumber(points) + ". " + formatNumber(GameState.safePoints) + " kvar!"
+            : (points > 0 ? "Forlorade " + formatNumber(points) : "Inga poang forlorade");
+        DOM.btnContinue.textContent = "Fortsatt";
+    } else {
+        DOM.resultPoints.textContent = "+" + formatNumber(points) + " sakrade";
+        DOM.btnContinue.textContent = "Fortsatt";
     }
 }
 
 function continueGame() {
-    DOM.resultOverlay.classList.add('hidden');
-
-    // Check if we should auto-bank (pot >= 6400)
-    if (GameState.pot >= 6400) {
-        handleBank();
-        return;
-    }
-
-    // If pot is 0 (wrong answer or banked), move to next round/player
-    if (GameState.pot === 0) {
-        nextTurn();
-    } else {
-        // Continue with another question in the same round
-        displayQuestion();
-    }
+    DOM.resultOverlay.classList.add("hidden");
+    if (GameState.currentLevel >= 10) { handleBank(); return; }
+    GameState.pot === 0 ? nextTurn() : displayQuestion();
 }
 
 function nextTurn() {
-    // In multiplayer, switch to next player
+    stopTimer();
+    GameState.pot = 0;
+    GameState.currentLevel = 0;
+    GameState.safePoints = 0;
+    GameState.streak = 0;
     if (GameState.isMultiplayer) {
         GameState.currentPlayerIndex++;
-
-        // If all players have had their turn, advance round
         if (GameState.currentPlayerIndex >= GameState.players.length) {
             GameState.currentPlayerIndex = 0;
             GameState.currentRound++;
@@ -527,63 +464,30 @@ function nextTurn() {
     } else {
         GameState.currentRound++;
     }
-
-    // Check if game is over
-    if (GameState.currentRound > GameState.totalRounds) {
-        endGame();
-        return;
-    }
-
-    // Reset round state
-    GameState.pot = 0;
-    GameState.streak = 0;
-
+    if (GameState.currentRound > GameState.totalRounds) { endGame(); return; }
     updateUI();
     displayQuestion();
 }
 
 function endGame() {
+    stopTimer();
     GameState.gameOver = true;
-
-    // Sort players by score
-    const sortedPlayers = [...GameState.players].sort((a, b) => b.score - a.score);
-
-    // Check for highscore (solo mode)
-    let isNewHighscore = false;
-    if (!GameState.isMultiplayer && sortedPlayers[0].score > 0) {
-        isNewHighscore = HighscoreSystem.isHighscore(sortedPlayers[0].score);
-        if (isNewHighscore) {
-            HighscoreSystem.saveScore(sortedPlayers[0].name, sortedPlayers[0].score);
-            AudioSystem.victory();
-        } else {
-            AudioSystem.gameOver();
-        }
-    } else {
-        AudioSystem.victory();
-    }
-
-    // Render results
-    DOM.finalResults.innerHTML = sortedPlayers.map((player, index) => {
-        const rankClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
-        const isWinner = index === 0 && (GameState.isMultiplayer || player.score > 0);
-
-        return `
-            <div class="final-result-item ${isWinner ? 'winner' : ''}">
-                <span class="rank ${rankClass}">${index + 1}.</span>
-                <span class="player-name">${player.name}</span>
-                <span class="final-score">${formatNumber(player.score)}</span>
-            </div>
-        `;
-    }).join('');
-
-    // Show highscore message
-    if (isNewHighscore) {
-        DOM.highscoreMessage.classList.remove('hidden');
-    } else {
-        DOM.highscoreMessage.classList.add('hidden');
-    }
-
-    showScreen('gameover');
+    const sorted = [...GameState.players].sort((a, b) => b.score - a.score);
+    let isNew = false;
+    if (!GameState.isMultiplayer && sorted[0].score > 0) {
+        isNew = HighscoreSystem.isHighscore(sorted[0].score);
+        if (isNew) { HighscoreSystem.saveScore(sorted[0].name, sorted[0].score); AudioSystem.victory(); }
+        else AudioSystem.gameOver();
+    } else AudioSystem.victory();
+    DOM.finalResults.innerHTML = sorted.map((p, i) => {
+        const rank = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+        return '<div class="final-result-item ' + (i === 0 ? 'winner' : '') + '">' +
+            '<span class="rank ' + rank + '">' + (i+1) + '.</span>' +
+            '<span class="player-name">' + p.name + '</span>' +
+            '<span class="final-score">' + formatNumber(p.score) + '</span></div>';
+    }).join("");
+    DOM.highscoreMessage.classList.toggle("hidden", !isNew);
+    showScreen("gameover");
 }
 
 // ============================================
@@ -591,93 +495,62 @@ function endGame() {
 // ============================================
 
 function setupPlayerInputs(count) {
-    DOM.playerInputs.innerHTML = '';
-
+    DOM.playerInputs.innerHTML = "";
     for (let i = 0; i < count; i++) {
-        const div = document.createElement('div');
-        div.className = 'player-input-group';
-        div.innerHTML = `
-            <label>Spelare ${i + 1}</label>
-            <input type="text" class="player-name-input" placeholder="Namn" maxlength="15">
-        `;
+        const div = document.createElement("div");
+        div.className = "player-input-group";
+        div.innerHTML = '<label>Spelare ' + (i + 1) + '</label>' +
+            '<input type="text" class="player-name-input" placeholder="Namn" maxlength="15">';
         DOM.playerInputs.appendChild(div);
     }
-
     updateAddPlayerButton();
 }
 
 function updateAddPlayerButton() {
-    const currentCount = DOM.playerInputs.querySelectorAll('.player-input-group').length;
-    DOM.btnAddPlayer.disabled = currentCount >= 4;
-    DOM.btnAddPlayer.style.display = GameState.isMultiplayer ? 'block' : 'none';
+    const count = DOM.playerInputs.querySelectorAll(".player-input-group").length;
+    DOM.btnAddPlayer.disabled = count >= 4;
+    DOM.btnAddPlayer.style.display = GameState.isMultiplayer ? "block" : "none";
 }
 
 function addPlayer() {
-    const currentCount = DOM.playerInputs.querySelectorAll('.player-input-group').length;
-    if (currentCount >= 4) return;
-
-    const div = document.createElement('div');
-    div.className = 'player-input-group';
-    div.innerHTML = `
-        <label>Spelare ${currentCount + 1}</label>
-        <input type="text" class="player-name-input" placeholder="Namn" maxlength="15">
-    `;
+    const count = DOM.playerInputs.querySelectorAll(".player-input-group").length;
+    if (count >= 4) return;
+    const div = document.createElement("div");
+    div.className = "player-input-group";
+    div.innerHTML = '<label>Spelare ' + (count + 1) + '</label>' +
+        '<input type="text" class="player-name-input" placeholder="Namn" maxlength="15">';
     DOM.playerInputs.appendChild(div);
-
     updateAddPlayerButton();
     AudioSystem.click();
 }
 
 function selectCategory(e) {
-    const btn = e.target.closest('.category-btn');
+    const btn = e.target.closest(".category-btn");
     if (!btn) return;
-
-    DOM.categoryButtons.forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
+    DOM.categoryButtons.forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
     GameState.category = btn.dataset.category;
     AudioSystem.click();
 }
 
 function validateSetup() {
-    const inputs = DOM.playerInputs.querySelectorAll('.player-name-input');
-    const names = Array.from(inputs).map(input => input.value.trim());
-
-    // Check that all players have names
-    const allNamed = names.every(name => name.length > 0);
-
-    // Check that a category is selected
-    const categorySelected = document.querySelector('.category-btn.selected');
-
-    return allNamed && categorySelected;
+    const inputs = DOM.playerInputs.querySelectorAll(".player-name-input");
+    const names = Array.from(inputs).map(i => i.value.trim());
+    return names.every(n => n.length > 0) && document.querySelector(".category-btn.selected");
 }
 
 function startGame() {
     if (!validateSetup()) {
-        // Flash the start button or show error
-        DOM.btnStartGame.classList.add('shake');
-        setTimeout(() => DOM.btnStartGame.classList.remove('shake'), 500);
+        DOM.btnStartGame.classList.add("shake");
+        setTimeout(() => DOM.btnStartGame.classList.remove("shake"), 500);
         return;
     }
-
-    // Get player names
-    const inputs = DOM.playerInputs.querySelectorAll('.player-name-input');
-    GameState.players = Array.from(inputs).map(input => ({
-        name: input.value.trim(),
-        score: 0
-    }));
-
-    // Reset game state
+    const inputs = DOM.playerInputs.querySelectorAll(".player-name-input");
+    GameState.players = Array.from(inputs).map(i => ({ name: i.value.trim(), score: 0 }));
     resetGameState();
-
-    // Update UI
     updateUI();
-
-    // Show game screen
-    showScreen('game');
-
-    // Display first question
+    showScreen("game");
     displayQuestion();
-
     AudioSystem.click();
 }
 
@@ -686,78 +559,45 @@ function startGame() {
 // ============================================
 
 function initEventListeners() {
-    // Start screen
-    DOM.btnSolo.addEventListener('click', () => {
+    DOM.btnSolo.addEventListener("click", () => {
         GameState.isMultiplayer = false;
         setupPlayerInputs(1);
-        showScreen('setup');
+        showScreen("setup");
         AudioSystem.click();
     });
-
-    DOM.btnMultiplayer.addEventListener('click', () => {
+    DOM.btnMultiplayer.addEventListener("click", () => {
         GameState.isMultiplayer = true;
         setupPlayerInputs(2);
-        showScreen('setup');
+        showScreen("setup");
         AudioSystem.click();
     });
-
-    DOM.btnHighscore.addEventListener('click', () => {
+    DOM.btnHighscore.addEventListener("click", () => {
         HighscoreSystem.render();
-        showScreen('highscore');
+        showScreen("highscore");
         AudioSystem.click();
     });
-
-    DOM.btnRules.addEventListener('click', () => {
-        showScreen('rules');
+    DOM.btnRules.addEventListener("click", () => {
+        showScreen("rules");
         AudioSystem.click();
     });
-
-    // Setup screen
-    DOM.btnAddPlayer.addEventListener('click', addPlayer);
-    DOM.categoryButtons.forEach(btn => {
-        btn.addEventListener('click', selectCategory);
-    });
-    DOM.btnBackSetup.addEventListener('click', () => {
-        showScreen('start');
-        AudioSystem.click();
-    });
-    DOM.btnStartGame.addEventListener('click', startGame);
-
-    // Game screen
-    DOM.btnBank.addEventListener('click', handleBank);
-    DOM.btnContinue.addEventListener('click', continueGame);
-
-    // Game over screen
-    DOM.btnPlayAgain.addEventListener('click', () => {
+    DOM.btnAddPlayer.addEventListener("click", addPlayer);
+    DOM.categoryButtons.forEach(btn => btn.addEventListener("click", selectCategory));
+    DOM.btnBackSetup.addEventListener("click", () => { showScreen("start"); AudioSystem.click(); });
+    DOM.btnStartGame.addEventListener("click", startGame);
+    DOM.btnBank.addEventListener("click", handleBank);
+    DOM.btnContinue.addEventListener("click", continueGame);
+    DOM.btnPlayAgain.addEventListener("click", () => {
         resetGameState();
         updateUI();
-        showScreen('game');
+        showScreen("game");
         displayQuestion();
         AudioSystem.click();
     });
-
-    DOM.btnMainMenu.addEventListener('click', () => {
-        showScreen('start');
-        AudioSystem.click();
-    });
-
-    // Highscore screen
-    DOM.btnBackHighscore.addEventListener('click', () => {
-        showScreen('start');
-        AudioSystem.click();
-    });
-
-    // Rules screen
-    DOM.btnBackRules.addEventListener('click', () => {
-        showScreen('start');
-        AudioSystem.click();
-    });
-
-    // Initialize audio on first user interaction
-    document.addEventListener('click', () => {
-        if (!AudioSystem.context) {
-            AudioSystem.init();
-        }
+    DOM.btnMainMenu.addEventListener("click", () => { stopTimer(); showScreen("start"); AudioSystem.click(); });
+    DOM.btnBackHighscore.addEventListener("click", () => { showScreen("start"); AudioSystem.click(); });
+    DOM.btnBackRules.addEventListener("click", () => { showScreen("start"); AudioSystem.click(); });
+    document.addEventListener("click", () => {
+        if (!AudioSystem.context) AudioSystem.init();
     }, { once: true });
 }
 
@@ -766,21 +606,14 @@ function initEventListeners() {
 // ============================================
 
 function init() {
-    // Select default category
-    document.querySelector('.category-btn[data-category="mixed"]').classList.add('selected');
-
-    // Initialize event listeners
+    document.querySelector('.category-btn[data-category="mixed"]').classList.add("selected");
     initEventListeners();
-
-    // Show start screen
-    showScreen('start');
-
-    console.log('🎲 SATSA initialized!');
+    showScreen("start");
+    console.log("SATSA initialized with level system!");
 }
 
-// Start the game when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
 } else {
     init();
 }
